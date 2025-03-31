@@ -134,35 +134,30 @@ jobs:
             exit 0
           fi
       
-          # 初始化批次
-          BATCH_SIZE=10
+          # 将文件列表转为数组
           FILES_ARRAY=($JPG_FILES)
-          TOTAL_FILES=${#FILES_ARRAY[@]}
-          BATCHES=$(( (TOTAL_FILES + BATCH_SIZE - 1) / BATCH_SIZE ))
-      
-          # 分批发送
-          for ((i=0; i<BATCHES; i++)); do
-            START_INDEX=$((i * BATCH_SIZE))
-            END_INDEX=$(( (i + 1) * BATCH_SIZE ))
-            CURRENT_BATCH=("${FILES_ARRAY[@]:START_INDEX:BATCH_SIZE}")
-      
-            # 构建 multipart 表单数据
-            FORM_DATA=""
-            for ((j=0; j<${#CURRENT_BATCH[@]}; j++)); do
-              FILE="${CURRENT_BATCH[j]}"
-              FORM_DATA+="-F media=@\"$FILE\" "
-            done
-      
-            # 发送请求
-            echo "正在发送批次 $((i+1))/${BATCHES}: ${CURRENT_BATCH[*]}"
-            curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
-              -F "chat_id=$TELEGRAM_CHAT_ID" \
-              -F "media=[{\"type\":\"photo\",\"media\":\"attach://$(basename "${CURRENT_BATCH[0]}")\"}" \
-              ${FORM_DATA}
-      
-            # 避免速率限制
-            sleep 1
+          
+          # 构建媒体组 JSON
+          MEDIA_GROUP="["
+          for FILE in "${FILES_ARRAY[@]}"; do
+            MEDIA_GROUP+="{\"type\":\"photo\",\"media\":\"attach://$FILE\"},"
           done
+          MEDIA_GROUP=${MEDIA_GROUP%,}  # 移除最后一个逗号
+          MEDIA_GROUP+="]"
+      
+          # 构建 curl 命令
+          CURL_CMD="curl -X POST \"https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup\" \
+            -F \"chat_id=$TELEGRAM_CHAT_ID\" \
+            -F \"media=$MEDIA_GROUP\""
+      
+          # 添加文件附件
+          for FILE in "${FILES_ARRAY[@]}"; do
+            CURL_CMD+=" -F \"$FILE=@$FILE\""
+          done
+      
+          # 执行请求
+          echo "正在发送文件: ${FILES_ARRAY[*]}"
+          eval "$CURL_CMD"
       
           echo "图片发送完成。"
 
