@@ -130,6 +130,18 @@ jobs:
           # 获取所有 .jpg 文件并按数字顺序排序
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
           echo "::set-output name=jpg_files::$JPG_FILES"
+          
+      - name: 查看 $JM_DOWNLOAD_DIR 目录树
+        run: |
+          # 检查是否安装了 tree 命令，如果没有则安装
+          if ! command -v tree &> /dev/null; then
+            echo "tree 命令未找到，正在安装..."
+            sudo apt-get update && sudo apt-get install -y tree
+          fi
+
+          # 使用 tree 命令查看目录树
+          echo "目录树结构："
+          tree -L 2 $JM_DOWNLOAD_DIR  # -L 2 表示只显示两层目录深度，可以根据需要调整
 
       - name: 发送多个图片到 Telegram 频道
         env:
