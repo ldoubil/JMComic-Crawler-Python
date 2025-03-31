@@ -129,9 +129,9 @@ jobs:
           echo "当前工作目录: $(pwd)"
           echo "JM_DOWNLOAD_DIR: $JM_DOWNLOAD_DIR"
           ls -lh $JM_DOWNLOAD_DIR
-          JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
+          JPG_FILES=$(cd $JM_DOWNLOAD_DIR && ls *.jpg 2>/dev/null | sort -V)
           echo "JPG_FILES: $JPG_FILES"
-          echo "::set-output name=jpg_files::$JPG_FILES"
+          echo "jpg_files=$JPG_FILES" >> $GITHUB_OUTPUT
           
       - name: 检查图片文件
         run: |
