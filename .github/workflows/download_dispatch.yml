@@ -127,11 +127,7 @@ jobs:
           
       - name: 触发 Webhook
         run: |
-          # 获取 Artifact 的公开下载 URL（需 GitHub Token 授权）
+          # 生成 GET 请求的 URL（参数直接拼接到 URL 中）
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}"
-          
-          # 发送 POST 请求到 Webhook
-          curl -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"url": "'"$DOWNLOAD_URL"'"}' \
-            "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7"
+          curl -G "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7" \
+            --data-urlencode "url=$DOWNLOAD_URL"
