@@ -130,10 +130,31 @@ jobs:
           # 获取所有 .jpg 文件并按数字顺序排序
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
           echo "::set-output name=jpg_files::$JPG_FILES"
-      - name: 调试图片文件路径
+          
+      - name: 检查图片文件
         run: |
           for FILE in $JPG_FILES; do
-            echo "检查文件: $JM_DOWNLOAD_DIR/$FILE"
+            FULL_PATH="$JM_DOWNLOAD_DIR/$FILE"
+            echo "检查文件: $FULL_PATH"
+            
+            # 检查文件是否存在
+            if [ ! -f "$FULL_PATH" ]; then
+              echo "错误: 文件不存在 -> $FULL_PATH"
+              exit 1
+            fi
+
+            # 检查文件是否为空
+            if [ ! -s "$FULL_PATH" ]; then
+              echo "错误: 文件为空 -> $FULL_PATH"
+              exit 1
+            fi
+
+            # 检查文件类型
+            FILE_TYPE=$(file --mime-type -b "$FULL_PATH")
+            if [[ "$FILE_TYPE" != image/jpeg && "$FILE_TYPE" != image/png ]]; then
+              echo "错误: 文件类型不支持 -> $FULL_PATH ($FILE_TYPE)"
+              exit 1
+            fi
           done
           
       - name: 查看 $JM_DOWNLOAD_DIR 目录树
