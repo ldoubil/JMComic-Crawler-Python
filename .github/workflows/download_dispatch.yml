@@ -130,7 +130,7 @@ jobs:
           
           echo "Sending file to Telegram..."
           curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
-            -F "chat_id=$CHAT_ID" \
+            -F "chat_id=$TELEGRAM_CHAT_ID" \
             -F "document=@$FILE_PATH" \
             -F "caption=下载的JM本子压缩包"
           
