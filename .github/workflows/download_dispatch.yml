@@ -192,8 +192,7 @@ jobs:
           fi
 
           # 将换行符替换为空格，确保 for 循环能正确处理
-          JPG_FILES=$(echo "$JPG_FILES" | tr '
-' ' ')
+          JPG_FILES=$(echo "$JPG_FILES" | tr '' ' ')
 
           BATCH_SIZE=10
           FILE_COUNT=0
