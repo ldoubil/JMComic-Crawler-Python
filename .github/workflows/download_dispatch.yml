@@ -125,57 +125,46 @@ jobs:
 
       - name: 发送多个图片到 Telegram 频道
         run: |
-          # 进入下载目录
           cd "$JM_DOWNLOAD_DIR"
       
-          # 获取所有 JPG 文件并按数字排序
+          # 获取 JPG 文件列表并排序
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
-      
-          # 检查是否有文件
           if [ -z "$JPG_FILES" ]; then
-            echo "错误：未找到任何 JPG 文件。"
+            echo "未找到 JPG 文件，跳过发送。"
             exit 0
           fi
       
-          # 打印调试信息
-          echo "找到以下 JPG 文件："
-          echo "$JPG_FILES"
-      
-          # 初始化批次计数器
+          # 初始化批次
           BATCH_SIZE=10
-          CURRENT_BATCH=0
-          MEDIA_GROUP="[]"
+          FILES_ARRAY=($JPG_FILES)
+          TOTAL_FILES=${#FILES_ARRAY[@]}
+          BATCHES=$(( (TOTAL_FILES + BATCH_SIZE - 1) / BATCH_SIZE ))
       
-          # 逐个处理文件
-          for FILE in $JPG_FILES; do
-            CURRENT_BATCH=$((CURRENT_BATCH + 1))
+          # 分批发送
+          for ((i=0; i<BATCHES; i++)); do
+            START_INDEX=$((i * BATCH_SIZE))
+            END_INDEX=$(( (i + 1) * BATCH_SIZE ))
+            CURRENT_BATCH=("${FILES_ARRAY[@]:START_INDEX:BATCH_SIZE}")
       
-            # 添加到媒体组（JSON 格式）
-            MEDIA_GROUP=$(echo "$MEDIA_GROUP" | jq --arg file "$FILE" \
-              '. += [{"type": "photo", "media": ("file://" + $file), "caption": $file}]')
+            # 构建 multipart 表单数据
+            FORM_DATA=""
+            for ((j=0; j<${#CURRENT_BATCH[@]}; j++)); do
+              FILE="${CURRENT_BATCH[j]}"
+              FORM_DATA+="-F media=@\"$FILE\" "
+            done
       
-            # 每批发送一次（避免 Telegram API 限制）
-            if [ "$CURRENT_BATCH" -eq "$BATCH_SIZE" ]; then
-              echo "发送批次：$MEDIA_GROUP"
-              curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
-                -F "chat_id=$TELEGRAM_CHAT_ID" \
-                -F "media=$MEDIA_GROUP"
+            # 发送请求
+            echo "正在发送批次 $((i+1))/${BATCHES}: ${CURRENT_BATCH[*]}"
+            curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
+              -F "chat_id=$TELEGRAM_CHAT_ID" \
+              -F "media=[{\"type\":\"photo\",\"media\":\"attach://$(basename "${CURRENT_BATCH[0]}")\"}" \
+              ${FORM_DATA}
       
-              # 重置批次
-              CURRENT_BATCH=0
-              MEDIA_GROUP="[]"
-            fi
+            # 避免速率限制
+            sleep 1
           done
       
-          # 发送剩余文件（如果有）
-          if [ "$CURRENT_BATCH" -gt 0 ]; then
-            echo "发送最后批次：$MEDIA_GROUP"
-            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
-              -F "chat_id=$TELEGRAM_CHAT_ID" \
-              -F "media=$MEDIA_GROUP"
-          fi
-      
-          echo "所有图片已发送到 Telegram。"
+          echo "图片发送完成。"
 
       - name: 发送压缩文件到 Telegram 频道
         run: |
