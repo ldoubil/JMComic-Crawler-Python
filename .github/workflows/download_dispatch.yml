@@ -43,19 +43,6 @@ on:
         description: 上传文件名称
         required: false
 
-#      JM_USERNAME:
-#        type: string
-#        default: ''
-#        description: '禁漫帐号（不建议使用，用户名和密码会泄露在日志中。最好用secrets）'
-#        required: false
-#
-#      JM_PASSWORD:
-#        type: string
-#        default: ''
-#        description: '禁漫密码（不建议使用，用户名和密码会泄露在日志中。最好用secrets）'
-#        required: false
-
-
 jobs:
   crawler:
     runs-on: ubuntu-latest
@@ -82,9 +69,12 @@ jobs:
 
       # 固定值
       JM_DOWNLOAD_DIR: /home/runner/work/jmcomic/download/
+      BOT_TOKEN: ${{ secrets.BOT }}  # Telegram Bot Token
+      TELEGRAM_CHAT_ID: -1002450004109  # 目标频道的 Chat ID
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -112,22 +102,61 @@ jobs:
 
       - name: 压缩文件
         run: |
+          mkdir -p $JM_DOWNLOAD_DIR
           cd $JM_DOWNLOAD_DIR
           tar -zcvf "../$ZIP_NAME" ./
           mv "../$ZIP_NAME" .
 
       - name: 上传结果
-        id: upload-artifact  # 添加唯一标识
+        id: upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.UPLOAD_NAME }}
           path: ${{ env.JM_DOWNLOAD_DIR }}/${{ env.ZIP_NAME }}
           if-no-files-found: error
           retention-days: 90
-          
+
       - name: 触发 Webhook
         run: |
           # 生成 GET 请求的 URL（参数直接拼接到 URL 中）
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}"
           curl -G "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7" \
             --data-urlencode "url=$DOWNLOAD_URL"
+
+      - name: 发送文件到 Telegram 频道
+        run: |
+          # 下载压缩文件到临时目录
+          TEMP_DIR=$(mktemp -d)
+          cd $TEMP_DIR
+          echo "Downloading artifact..."
+          wget --continue --output-document="$ZIP_NAME" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}/zip" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+
+          if [ $? -ne 0 ]; then
+            echo "Failed to download artifact."
+            exit 1
+          fi
+
+          echo "Artifact downloaded successfully."
+
+          # 发送文件到 Telegram
+          BOT_TOKEN=${{ env.BOT_TOKEN }}
+          CHAT_ID=${{ env.TELEGRAM_CHAT_ID }}
+          FILE_PATH="$TEMP_DIR/$ZIP_NAME"
+
+          echo "Sending file to Telegram..."
+          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+            -F "chat_id=$CHAT_ID" \
+            -F "document=@$FILE_PATH" \
+            -F "caption=下载的JM本子压缩包"
+
+          if [ $? -eq 0 ]; then
+            echo "File sent successfully."
+          else
+            echo "Failed to send file to Telegram."
+            exit 1
+          fi
+
+          # 清理临时文件
+          rm -rf $TEMP_DIR
