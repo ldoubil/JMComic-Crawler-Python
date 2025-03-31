@@ -126,9 +126,11 @@ jobs:
       - name: 获取所有 JPG 文件并按数字顺序排序
         id: list-jpg-files
         run: |
-          cd $JM_DOWNLOAD_DIR
-          # 获取所有 .jpg 文件并按数字顺序排序
+          echo "当前工作目录: $(pwd)"
+          echo "JM_DOWNLOAD_DIR: $JM_DOWNLOAD_DIR"
+          ls -lh $JM_DOWNLOAD_DIR
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
+          echo "JPG_FILES: $JPG_FILES"
           echo "::set-output name=jpg_files::$JPG_FILES"
           
       - name: 检查图片文件
