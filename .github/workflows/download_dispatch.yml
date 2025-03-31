@@ -125,37 +125,18 @@ jobs:
 
       - name: 发送文件到 Telegram 频道
         run: |
-          # 下载压缩文件到临时目录
-          TEMP_DIR=$(mktemp -d)
-          cd $TEMP_DIR
-          echo "Downloading artifact..."
-          wget --continue --output-document="$ZIP_NAME" \
-            "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}" 
-
-          if [ $? -ne 0 ]; then
-            echo "Failed to download artifact."
-            exit 1
-          fi
-
-          echo "Artifact downloaded successfully."
-
-          # 发送文件到 Telegram
-          BOT_TOKEN=${{ env.BOT_TOKEN }}
-          CHAT_ID=${{ env.TELEGRAM_CHAT_ID }}
-          FILE_PATH="$TEMP_DIR/$ZIP_NAME"
-
+          # 直接使用本地生成的压缩文件路径
+          FILE_PATH="$JM_DOWNLOAD_DIR/$ZIP_NAME"
+          
           echo "Sending file to Telegram..."
           curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
             -F "chat_id=$CHAT_ID" \
             -F "document=@$FILE_PATH" \
             -F "caption=下载的JM本子压缩包"
-
+          
           if [ $? -eq 0 ]; then
             echo "File sent successfully."
           else
             echo "Failed to send file to Telegram."
             exit 1
           fi
-
-          # 清理临时文件
-          rm -rf $TEMP_DIR
