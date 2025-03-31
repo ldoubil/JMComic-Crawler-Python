@@ -123,16 +123,75 @@ jobs:
           curl -G "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7" \
             --data-urlencode "url=$DOWNLOAD_URL"
 
-      - name: 发送文件到 Telegram 频道
+      - name: 获取所有 JPG 文件并按数字顺序排序
+        id: list-jpg-files
+        run: |
+          cd $JM_DOWNLOAD_DIR
+          # 获取所有 .jpg 文件并按数字顺序排序
+          JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
+          echo "::set-output name=jpg_files::$JPG_FILES"
+
+      - name: 发送多个图片到 Telegram 频道
+        env:
+          JPG_FILES: ${{ steps.list-jpg-files.outputs.jpg_files }}
+        run: |
+          # 检查是否有 JPG 文件
+          if [ -z "$JPG_FILES" ]; then
+            echo "No JPG files found in $JM_DOWNLOAD_DIR."
+            exit 0
+          fi
+
+          # 初始化变量
+          BATCH_SIZE=10
+          FILE_COUNT=0
+          MEDIA_GROUP="[]"
+
+          for FILE in $JPG_FILES; do
+            FILE_COUNT=$((FILE_COUNT + 1))
+            # 构造媒体组 JSON
+            MEDIA_GROUP=$(echo $MEDIA_GROUP | jq --argjson media '{"type": "photo", "media": "@'$FILE'", "caption": "'$FILE'"}' '. + [$media]')
+
+            # 如果达到批次大小，发送媒体组
+            if [ $FILE_COUNT -eq $BATCH_SIZE ]; then
+              RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
+                -F "chat_id=$TELEGRAM_CHAT_ID" \
+                -F "media=$(echo $MEDIA_GROUP | jq -c .)")
+
+              if [ $? -ne 0 ]; then
+                echo "Failed to send media group to Telegram."
+                exit 1
+              fi
+
+              # 重置媒体组和计数器
+              MEDIA_GROUP="[]"
+              FILE_COUNT=0
+            fi
+          done
+
+          # 发送剩余的文件
+          if [ $FILE_COUNT -gt 0 ]; then
+            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup" \
+              -F "chat_id=$TELEGRAM_CHAT_ID" \
+              -F "media=$(echo $MEDIA_GROUP | jq -c .)")
+
+            if [ $? -ne 0 ]; then
+              echo "Failed to send remaining media group to Telegram."
+              exit 1
+            fi
+          fi
+
+          echo "All images sent successfully."
+
+      - name: 发送压缩文件到 Telegram 频道
         run: |
           # 直接使用本地生成的压缩文件路径
           FILE_PATH="$JM_DOWNLOAD_DIR/$ZIP_NAME"
           
           echo "Sending file to Telegram..."
-          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+          RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
             -F "chat_id=$TELEGRAM_CHAT_ID" \
             -F "document=@$FILE_PATH" \
-            -F "caption=下载的JM本子压缩包"
+            -F "caption=下载的JM本子压缩包")
           
           if [ $? -eq 0 ]; then
             echo "File sent successfully."
