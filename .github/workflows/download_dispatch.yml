@@ -123,43 +123,41 @@ jobs:
           curl -G "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7" \
             --data-urlencode "url=$DOWNLOAD_URL"
 
-      - name: 发送多个图片到 Telegram 频道
+      - name: 单独发送每张图片到 Telegram 频道
         run: |
+          # 进入下载目录
           cd "$JM_DOWNLOAD_DIR"
       
-          # 获取 JPG 文件列表并排序
+          # 获取所有 JPG 文件并按数字排序
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
           if [ -z "$JPG_FILES" ]; then
             echo "未找到 JPG 文件，跳过发送。"
             exit 0
           fi
       
-          # 将文件列表转为数组
-          FILES_ARRAY=($JPG_FILES)
-          
-          # 构建媒体组 JSON
-          MEDIA_GROUP="["
-          for FILE in "${FILES_ARRAY[@]}"; do
-            MEDIA_GROUP+="{\"type\":\"photo\",\"media\":\"attach://$FILE\"},"
+          # 遍历每张图片并单独发送
+          for FILE in $JPG_FILES; do
+            echo "正在发送图片: $FILE"
+      
+            # 使用 curl 发送单张图片
+            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendPhoto" \
+              -F "chat_id=$TELEGRAM_CHAT_ID" \
+              -F "photo=@\"$FILE\"" \
+              -F "caption=$FILE")  # 可选：为图片添加描述（文件名）
+      
+            # 检查发送结果
+            if [ $? -eq 0 ]; then
+              echo "图片发送成功: $FILE"
+            else
+              echo "图片发送失败: $FILE"
+              echo "API 响应: $RESPONSE"
+            fi
+      
+            # 避免触发 Telegram 的速率限制
+            sleep 1
           done
-          MEDIA_GROUP=${MEDIA_GROUP%,}  # 移除最后一个逗号
-          MEDIA_GROUP+="]"
       
-          # 构建 curl 命令
-          CURL_CMD="curl -X POST \"https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup\" \
-            -F \"chat_id=$TELEGRAM_CHAT_ID\" \
-            -F \"media=$MEDIA_GROUP\""
-      
-          # 添加文件附件
-          for FILE in "${FILES_ARRAY[@]}"; do
-            CURL_CMD+=" -F \"$FILE=@$FILE\""
-          done
-      
-          # 执行请求
-          echo "正在发送文件: ${FILES_ARRAY[*]}"
-          eval "$CURL_CMD"
-      
-          echo "图片发送完成。"
+          echo "所有图片发送完成。"
 
       - name: 发送压缩文件到 Telegram 频道
         run: |
