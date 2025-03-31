@@ -130,8 +130,7 @@ jobs:
           cd $TEMP_DIR
           echo "Downloading artifact..."
           wget --continue --output-document="$ZIP_NAME" \
-            "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+            "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}" 
 
           if [ $? -ne 0 ]; then
             echo "Failed to download artifact."
