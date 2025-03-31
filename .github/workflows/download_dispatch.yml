@@ -130,6 +130,11 @@ jobs:
           # 获取所有 .jpg 文件并按数字顺序排序
           JPG_FILES=$(ls *.jpg 2>/dev/null | sort -V)
           echo "::set-output name=jpg_files::$JPG_FILES"
+      - name: 调试图片文件路径
+        run: |
+          for FILE in $JPG_FILES; do
+            echo "检查文件: $JM_DOWNLOAD_DIR/$FILE"
+          done
           
       - name: 查看 $JM_DOWNLOAD_DIR 目录树
         run: |
