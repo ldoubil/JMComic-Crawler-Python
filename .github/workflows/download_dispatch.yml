@@ -117,9 +117,21 @@ jobs:
           mv "../$ZIP_NAME" .
 
       - name: 上传结果
+        id: upload-artifact  # 添加唯一标识
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.UPLOAD_NAME }}
           path: ${{ env.JM_DOWNLOAD_DIR }}/${{ env.ZIP_NAME }}
           if-no-files-found: error
           retention-days: 90
+          
+      - name: 触发 Webhook
+        run: |
+          # 获取 Artifact 的公开下载 URL（需 GitHub Token 授权）
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ steps.upload-artifact.outputs.artifact-id }}"
+          
+          # 发送 POST 请求到 Webhook
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"url": "'"$DOWNLOAD_URL"'"}' \
+            "http://124.71.134.95:5678/webhook-test/07e50f86-11ed-4781-9990-afc7beb562b7"
